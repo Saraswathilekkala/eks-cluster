@@ -1,0 +1,443 @@
+CSG International
+tomcat installation
+--------------------
+1  appserver ( /root)
+    2  cd /tmp
+    3  wget -c --header "Cookie: oraclelicense=accept-securebackup-cookie" http://download.oracle.com/otn-pub/java/jdk/8u131-b11/d54c1d3a095b4ff2b6607d096fa80163/jdk-8u131-linux-x64.rpm
+    4  rpm -ivh jdk-8u131-linux-x64.rpm
+    5  cd /opt
+    6  wget http://apachemirror.wuchna.com/tomcat/tomcat-9/v9.0.38/bin/apache-tomcat-9.0.38-windows-x64.zip
+       wget https://tomcat.apache.org/download-90.cgi
+    7  ls
+    8  unzip apache-tomcat-9.0.38-windows-x64.zip
+    9  ls
+   10  rm -f apache-tomcat-9.0.38-windows-x64.zip
+   11  ls
+   12  mv apache-tomcat-9.0.38 tomcat
+   13  cd tomcat
+   14  ls
+   15  ls -ltr
+   16  cd bin
+   17  ls -ltr  
+   18  ls -ltr *.sh
+   19  ./startup.sh
+   20  chmod 755 *.sh
+   21  ./startup.sh
+   22  netstat -anlp | grep ":8080"
+   23  netstat -anlp | grep "java"
+   24  cd /opt
+   25  wget https://www.oracle.com/webfolder/technetwork/tutorials/obe/fmw/wls/10g/r3/cluster/session_state/files/shoppingcart.zip
+   26  unzip shoppingcart.zip
+   27  cp shoppingcart.zip /opt/tomcat/webapps
+
+tomcat stop and start
+======================
+1. /opt/tomcat9/bin/shutdown.sh 
+2. /opt/tomcat9/bin/startup.sh
+
+jenkins CICD concept
+--------------------
+pre-requ
+---------
+1.git install
+2.maveninstall--https://maven.apache.org/download.cgi
+3.java --version
+  alternatives --config java
+
+job-build commands
+------------------
+#opt/maven36/bin/mvn clean package
+
+#warpath=/var/lib/jenkins/workspace/build-war-maven/target/
+#warfile=sparkjava-hello-world-1.0.war
+#bucketname=loka.joshmc.xyz
+#aws s3 cp $warpath/$warfile s3://$bucketname/
+
+new rename the warfile
+----------------------
+warpath=/var/lib/jenkins/workspace/build-war-maven/target/
+warfile=sparkjava-hello-world-1.0.war
+newwarfile=jen-build-$BUILD_NUMBER.war
+bucketname=loka.joshmc.xyz
+mv $warpath/$warfile $warpath/$newwarfile
+aws s3 cp $warpath/$newwarfile s3://$bucketname/
+
+
+aws s3 cp s3://loka.joshmc.xyz/
+
+deploy the war file
+-----------------------
+aws s3 cp s3://loka.joshmc.xyz/jen-build-20.war .
+echo "iam deploying the package to the tomcat"
+scp jen-build-20.war root@192.168.5.210:/opt/tomcat9/webapps/jen-build.war
+echo "deployment completed"
+
+docker images deployment to the container
+-----------------------------------------
+1.create the dockerfile 
+2.create index.html file
+3.install the git commands
+  git init
+  git add .
+  git commit -m "test"
+  git status
+  git log
+  git push
+4.code build and push the image
+-------------------------------
+
+creating IAM role with admistration access given to the jenkins ec2 machine
+
+-------------------------------
+
+sudo docker build -t stati-app:$BUILD_NUMBER .
+aws ecr get-login-password --region ap-south-1 |sudo docker login --username AWS --password-stdin 487477082606.dkr.ecr.ap-south-1.amazonaws.com
+sudo docker build -t 487477082606.dkr.ecr.ap-south-1.amazonaws.com/static-app:$BUILD_NUMBER .
+sudo docker push 487477082606.dkr.ecr.ap-south-1.amazonaws.com/static-app:$BUILD_NUMBER
+
+deploy to the deployement .yaml in container 
+-----------------------------------------------
+
+creating IAM role with admistration access given to the eksctl ec2 machine
+
+install the eksctl
+--------------------
+1.curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+2.sudo mv /tmp/eksctl /usr/local/bin
+
+install the kubectl
+--------------------
+1.curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
+2.mv kubectl /usr/local/bin/
+3.chmod 755 /usr/local/bin/kubectl
+4.kubectl
+
+install the iam-authenticator
+-----------------------------
+1.curl -o aws-iam-authenticator https://amazon-eks.s3.us-west-2.amazonaws.com/1.18.9/2020-11-02/bin/linux/amd64/aws-iam-authenticator
+2.chmod 755 aws-iam-authenticator
+3.mv aws-iam-authenticator /usr/local/bin/
+4. aws-iam-authenticator
+
+awscli
+-------
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+
+eksctl create cluster
+----------------------
+eksctl create cluster \
+--name cluster \
+--version 1.23 \
+--region us-east-2 \
+--nodegroup-name linux \
+--nodes 2 \
+--nodes-min 2 \
+--nodes-max 4 \
+--with-oidc \
+--ssh-access \
+--ssh-public-key pove \
+--managed
+
+
+update the kube config
+----------------------
+aws eks --region <region-code> update-kubeconfig --name <cluster_name>
+aws eks --region ap-southeast-1 update-kubeconfig --name k8-cluster
+
+
+
+
+delete the cluster
+-------------------
+eksctl delete cluster --name=prod-cluster
+
+commands
+--------
+ 1.kubectl get nodes
+2.cd .kube/
+3.more config
+4.kubectl get ns
+5.kubectl get po -n kube-system
+6.kubectls create ns web
+7.kubectl create ns shoppingcart
+8.kubectl get ns
+9.source <(kubectl completion bash)
+10.echo "source <(kubectl completion bash)" >> ~/.bashrc
+11.kubectl config view
+12. kubectl config get-contexts---e cluster lo unnavo  identy cheyadaniki
+
+deploye the pod  (search the browser kubectl cheat sheet)
+----------------
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: busybox-sleep
+spec:
+  containers:
+  - name: busybox
+    image: busybox
+    args:
+    - sleep
+    - "1000000"
+ 1. kubectl apply -f busybox-pod.yaml
+ 2.kubectl get  po
+ 3.
+
+deploye the nginx pod
+----------------------
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+  namesapce: web
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    args:
+    - sleep
+    - "1000000"
+1.kubectl apply -f nginx-pod.yaml
+2.kubectl get po -n web
+
+
+pod is not runnig or error
+----------------------------
+1.kubectl describe po nginx (pod name) -n web
+
+kubectl logs podid/name
+-----------------------
+1.kubectl logs podid/name
+
+delete the pod
+-------------------
+1. kubectl delete po nginx -n web
+
+deploye adeployement objects
+-----------------------------
+
+apiVersion: apps/v1 # for versions before 1.9.0 use apps/v1beta2
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  replicas: 2 # tells deployment to run 2 pods matching the template
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+
+
+project-1
+=========
+create the service
+------------------
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app:  staticapp-svc
+  name:  staticapp-svc
+  namespace:  ecr
+spec:
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+  selector:
+    app:  staticapp-deployment
+
+Deploy ingress-controller
+-------------------------
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-0.32.0/deploy/static/provider/aws/deploy.yaml
+
+deploye the deployment-yaml file
+---------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: staticapp-deployment
+  namespace: staticapp-k8
+spec:
+  selector:
+    matchLabels:
+      app: staticapp-deployment
+  replicas: 2 
+  template:
+    metadata:
+      labels:
+        app: staticapp-deployment
+    spec:
+      containers:
+      - name: staticapp-deployment
+        image: 811847782524.dkr.ecr.ap-southeast-1.amazonaws.com/static-kamal:16
+        ports:
+        - containerPort: 80
+
+
+1. kubectl apply -f nginx-deployment.yaml -n web
+2.kubectl get po -n web
+3.kubectl get rs -n web
+
+scall the deployement
+---------------------
+vi nginx-deployment.yaml
+
+apiVersion: apps/v1 # for versions before 1.9.0 use apps/v1beta2
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  replicas: 1000 # tells deployment to run 2 pods matching the template
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+
+scaldown the pods
+-----------------
+==> kubectl get deployement
+==> kubectl scale deployment nginx-deployement --replicas=10
+==>kubectl get rs
+
+Deleting a deployment
+---------------------
+==> kubectl delete deployment nginx-deployment
+
+create the limits and requests
+-------------------------------
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cpu-demo
+  namespace: cpu-example
+spec:
+  containers:
+  - name: cpu-demo-ctr
+    image: vish/stress
+    resources:
+      limits:
+        cpu: "1"
+      requests:
+        cpu: "0.5"
+    args:
+    - -cpus
+    - "2"
+
+1.create name space
+ kubectl create namespace cpu-example
+ kubectl apply -f https://k8s.io/examples/pods/resource/cpu-request-limit.yaml --namespace=cpu-example
+ kubectl get po -n cpu-example
+ kubectl top po -n cpu-example
+
+
+(pod)deployement apple-banana
+--------------------------
+kubectl apply -f https://raw.githubusercontent.com/cornellanthony/nlb-nginxIngress-eks/master/banana.yaml
+kind: Service
+apiVersion: v1
+metadata:
+  name: staticapp-vc
+  namespace: staticapp-k8
+spec:
+  selector:
+    app: staticapp-deployment
+  ports:
+    - port: 80
+ kubectl apply -f https://raw.githubusercontent.com/cornellanthony/nlb-nginxIngress-eks/master/banana.yaml
+kubectl create -f https://raw.githubusercontent.com/cornellanthony/nlb-nginxIngress-eks/master/example-ingress.yaml
+
+
+ecr concept
+-----------
+aws ecr get-login-password --region ap-south-1 | sudo docker login --username AWS --password-stdin 915630400514.dkr.ecr.ap-south-1.amazonaws.com
+sudo docker build -t 915630400514.dkr.ecr.ap-south-1.amazonaws.com/sringboot:$BUILD_NUMBER .
+sudo docker push 915630400514.dkr.ecr.ap-south-1.amazonaws.com/sringboot:$UILD_NUMBER 
+
+project-2
+---------
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app:  springboot-svc
+  name:  springboot-svc
+  namespace:  springboot
+spec:
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8080
+  selector:
+    app:  springboot-deployment
+
+
+
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+ name: springboot-ing
+ namespace: springboot
+ annotations:
+   kubernetes.io/ingress.class: nginx
+spec:
+  rules:
+  - host: springboot.joshmc.xyz
+   http:
+     paths:
+     - path:
+       backend:
+         serviceName: springboot-svc
+         servicePort: 80
+
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: springboot-ing
+  namespace: springboot
+  annotations:
+    kubernetes.io/ingress.class: nginx
+spec:
+  rules:
+  - host: springboot.joshmc.xyz
+
+    http:
+      paths:
+      - path:
+        backend:
+        backend:
+          serviceName: springboot-svc
+          servicePort: 80
+
+
+/var/lib/jenkins staticapp-deployment.yaml .
+cp /var/lib/jenkins/springboot/springboot.deployment.yaml  .
+#bring the yaml file to the workspace
+sed -i "s/springboot-k8:[0-9.]*/springboot:$BUILD_NUMBER/g" springboot.deployment.yaml 
+#deploy the application
+kubectl apply -f springboot.deployment.yaml 
+sed -i "s/staticapp-k8:[0-9.]*/staticapp-k8:10/g" staticapp-deployment.yaml
+
+
+
